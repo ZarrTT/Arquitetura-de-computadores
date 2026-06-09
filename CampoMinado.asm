@@ -1,38 +1,48 @@
-#####################################################################
-# CENÁRIO DE CAMPO MINADO (VISUAL) PARA MARS BITMAP DISPLAY
-#
 # Configurações do Display:
 # - Unit Width/Height: 4x4 pixels
 # - Display Width/Height: 512x256
-# - Base Address: 0x10010000 (static data)
-#####################################################################
-
+# - Base Address: 0x10000000 (global data)
 .data
-# --- Definições de Memória do Display ---
-display_base:    .word 0x10010000    # Endereço base da memória de vídeo (estática)
-screen_width:    .word 128            # Largura lógica em 'units' (512 / 4)
-screen_height:   .word 64             # Altura lógica em 'units' (256 / 4)
+nomes_pontos:
+        .word 30,15, 29,16, 29,17, 30,18, 31,17, 30,19
+        .word 29,21, 28,23, 28,24, 29,25, 31,25, 33,24
+        .word 35,22, 35,23, 36,24, 37,24, 38,23, 38,22
+        .word 39,23, 40,24, 42,22, 42,23, 43,24, 42,19
+        .word 45,22, 46,22, 47,23, 46,24, 45,25, 44,26
+        .word 45,27, 46,26, 28,24, 53,22, 52,23, 52,24
+        .word 53,25, 54,25, 55,24, 55,22, 55,23, 56,25
+        .word 58,22, 59,22, 60,23, 60,24, 61,25
+        
+        .word 30,38, 29,39, 30,41, 31,43, 32,44, 33,43
+        .word 34,41, 35,39, 36,38, 38,39, 41,42, 40,43
+        .word 41,44, 42,44, 43,43, 43,42, 44,44, 46,43
+        .word 47,41, 48,39, 49,38, 48,37, 47,39, 47,41
+        .word 47,43, 48,44, 51,43, 52,42, 53,42, 52,43
+        .word 51,44, 53,45, 55,42, 55,43, 56,42, 57,43
+        .word 57,44, 58,45, 60,39, 60,41, 60,43, 60,44
+        .word 61,45, 59,41, 61,41
+fim_nomes:
 
-# --- Definições do Jogo ---
-grid_size:       .word 10             # Tamanho da matriz (10x10)
-cell_size:       .word 4              # Tamanho de cada célula do jogo (4x4 'units')
-grid_x_offset:   .word 44             # Centralização horizontal: (128 - 10*4) / 2
-grid_y_offset:   .word 12             # Centralização vertical: (64 - 10*4) / 2
+display_base:    .word 0x10000000    
+screen_width:    .word 128            
+screen_height:   .word 64             
 
-# --- Definições de Cores (Formato 0x00RRGGBB) ---
-color_hidden:    .word 0x00404040    # Cinza Escuro (Célula fechada)
-color_open:      .word 0x00AAAAAA    # Cinza Claro (Célula vazia aberta)
-color_borda:     .word 0x00000000    # Preto (Linhas de grade)
-color_bomba:     .word 0x00FF0000    # Vermelho (Bomba)
-color_bandeira:  .word 0x000000FF    # Azul (Bandeira)
+grid_size:       .word 10             
+cell_size:       .word 4              
+grid_x_offset:   .word 44             
+grid_y_offset:   .word 12             
 
-# Cores dos números (1 a 4)
-color_num1:      .word 0x000000FF    # Azul
-color_num2:      .word 0x00008000    # Verde
-color_num3:      .word 0x00FF0000    # Vermelho
-color_num4:      .word 0x00000080    # Azul Marinho
+color_hidden:    .word 0x00404040
+color_open:      .word 0x00AAAAAA
+color_borda:     .word 0x00000000
+color_bomba:     .word 0x00FF0000
+color_bandeira:  .word 0x000000FF
 
-# --- Definição do Mapa do Cenário ---
+color_num1:      .word 0x000000FF    
+color_num2:      .word 0x00008000    
+color_num3:      .word 0x00FF0000    
+color_num4:      .word 0x00000080    
+
 game_grid_map:
     .byte  2,  0,  0,  0,  0,  0,  0, 11,  0,  0    
     .byte  9,  2,  0,  0,  0,  0,  0,  0,  2,  9    
@@ -47,57 +57,101 @@ game_grid_map:
 
 .text
 .globl main
-.globl get_cell_color
-.globl draw_game_cell
 
 main:
-    # --- Inicialização de Registradores de Base ---
+    lw $s0, display_base      
+    lw $s4, screen_width      
+    
+    lui $t0, 0x00FF                
+    ori $t0, $t0, 0xFFFF           
+    li $t1, 0                      
+    li $t2, 8192
+limpar_intro:
+    sw $t0, 0($s0)                 
+    addi $s0, $s0, 4               
+    addi $t1, $t1, 1               
+    blt $t1, $t2, limpar_intro      
+    
+    lw $s0, display_base           
+    la $s1, nomes_pontos           
+    la $s2, fim_nomes              
+    li $a2, 0x00000000             
+
+desenhar_nomes_loop:
+    beq $s1, $s2, iniciar_delay
+    
+    lw $a0, 0($s1)                 
+    lw $a1, 4($s1)                 
+
+    sll $t4, $a1, 7
+    add $t4, $t4, $a0
+    sll $t4, $t4, 2
+    add $t5, $s0, $t4              
+    sw $a2, 0($t5)                 
+
+    addi $t6, $a0, 1
+    sll $t4, $a1, 7
+    add $t4, $t4, $t6
+    sll $t4, $t4, 2
+    add $t5, $s0, $t4
+    sw $a2, 0($t5)
+
+    addi $s1, $s1, 8               
+    j desenhar_nomes_loop
+
+iniciar_delay:
+    li $v0, 32
+    li $a0, 3000
+    syscall
+
+    lw $s0, display_base           
+    li $t0, 0x00000000             
+    li $t1, 0                      
+    li $t2, 8192                   
+limpar_jogo:
+    sw $t0, 0($s0)                 
+    addi $s0, $s0, 4               
+    addi $t1, $t1, 1               
+    blt $t1, $t2, limpar_jogo
+    
     lw $s0, display_base      
     la $s1, game_grid_map     
-    lw $s2, grid_size         
-    lw $s3, cell_size         
-    lw $s4, screen_width      
+    lw $s2, grid_size          
+    lw $s3, cell_size          
 
-    # --- Inicialização dos Loops de Renderização ---
-    move $t0, $zero           # $t0 = Contador de Linha (row)
+    move $t0, $zero
 
 row_loop:
-    beq $t0, $s2, end_main    
-    move $t1, $zero           # $t1 = Contador de Coluna (col)
+    beq $t0, $s2, end_main     
+    move $t1, $zero
 
 col_loop:
-    beq $t1, $s2, next_row    
+    beq $t1, $s2, next_row     
 
-    # 1. Calcular o endereço do valor na matriz 'game_grid_map'
-    mult $t0, $s2             
-    mflo $t2                  
-    add $t2, $t2, $t1         
-    add $t2, $t2, $s1         
-    lbu $t3, 0($t2)           # $t3 guarda o valor da célula
+    mult $t0, $s2              
+    mflo $t2                   
+    add $t2, $t2, $t1          
+    add $t2, $t2, $s1          
+    lbu $t3, 0($t2)            
 
-    # 2. Calcular a cor com base no valor lido da matriz
-    jal get_cell_color        
+    jal get_cell_color         
 
-    # 3. Desenhar o quadrado na tela
-    move $a0, $t1             
-    move $a1, $t0             
-    move $a2, $v0             
-    jal draw_game_cell        
+    move $a0, $t1              
+    move $a1, $t0              
+    move $a2, $v0              
+    jal draw_game_cell         
 
-    addi $t1, $t1, 1          
+    addi $t1, $t1, 1           
     j col_loop
 
 next_row:
-    addi $t0, $t0, 1          
+    addi $t0, $t0, 1           
     j row_loop
 
 end_main:
-    li $v0, 10                
+    li $v0, 10                 
     syscall
 
-# =====================================================================
-# ROTINA: get_cell_color
-# =====================================================================
 get_cell_color:
     beq $t3, 0,  c_hidden     
     beq $t3, 1,  c_open       
@@ -140,51 +194,42 @@ c_bandeira:
     lw $v0, color_bandeira
     jr $ra
 
-# =====================================================================
-# ROTINA: draw_game_cell
-# =====================================================================
 draw_game_cell:
     lw $t4, grid_x_offset     
     lw $t5, grid_y_offset     
-    lw $t6, cell_size         
+    lw $t6, cell_size          
 
-    # x_start = (col * cell_size) + x_offset
     mult $a0, $t6         
     mflo $t7
-    add $t7, $t7, $t4         
+    add $t7, $t7, $t4          
 
-    # y_start = (row * cell_size) + y_offset
     mult $a1, $t6         
     mflo $t8
-    add $t8, $t8, $t5         
+    add $t8, $t8, $t5          
 
-    # Loops internos do quadrado
-    move $t9, $zero           # y_inner = 0
+    move $t9, $zero
 d_row_loop:
     beq $t9, $t6, d_end_cell  
 
-    move $s7, $zero           # x_inner = 0
+    move $s7, $zero
 d_col_loop:
     beq $s7, $t6, d_next_row  
 
-    # Coordenadas finais do pixel
-    add $s5, $t7, $s7         # x_final
-    add $s6, $t8, $t9         # y_final
+    add $s5, $t7, $s7
+    add $s6, $t8, $t9
 
-    # --- MATEMÁTICA DO PIXEL ---
-    mult $s6, $s4             # y_final * screen_width (128)
+    mult $s6, $s4
     mflo $t8                  
     
-    add $t8, $t8, $s5         # + x_final
-    sll $t8, $t8, 2           # * 4
-    add $t8, $t8, $s0         # + Endereço Base ($s0)
+    add $t8, $t8, $s5
+    sll $t8, $t8, 2
+    add $t8, $t8, $s0
 
-    sw $a2, 0($t8)            # Escreve a cor na tela
+    sw $a2, 0($t8)             
 
-    # Restaura o valor original de y_start para o próximo pixel
     mult $a1, $t6         
     mflo $t8
-    add $t8, $t8, $t5         
+    add $t8, $t8, $t5          
 
     addi $s7, $s7, 1          
     j d_col_loop
